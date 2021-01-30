@@ -94,7 +94,7 @@ function onload() {
     })
 }
 function getUserName() {
-    return cache.getCookies(".twitch.tv").filter(p => (p.name === "name" || p.name === "login") && (typeof(p.value) === "string" && p.value.length > 0))[0]?.value || null
+    return cache.getCookies(".twitch.tv").filter(p => (p.name === "name" || p.name === "login") && (typeof(p.value) === "string" && p.value.length > 0)).map(p => p.value)[0] || null
 }
 
 onload()
