@@ -1,0 +1,23 @@
+{
+    "name": "StreamPoints",
+    "description": "Tracker for Stream Points by various bots on Twitch!",
+    "version": "1.0",
+    "manifest_version": 3,
+    "background": {
+        "service_worker": "background.js"
+    },
+    "permissions": ["activeTab", "cookies"],
+    "host_permissions": [
+        "https://*.twitch.tv/*"
+    ],
+    "action": {
+        "default_popup": "ui/popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": ["https://*.twitch.tv/*"],
+            "run_at": "document_idle",
+            "js": ["js/pointsTracker.js"]
+        }
+    ]
+}
