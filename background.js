@@ -94,17 +94,7 @@ function onload() {
     })
 }
 function getUserName() {
-    const cookies = cache.getCookies(".twitch.tv")
-    let name = null
-    for (let cookie of cookies) {
-        if (cookie.name === "name" || cookie.name === "login") {
-            if (typeof(cookie.value) === "string" && cookie.value.length > 0) {
-                name = cookie.value
-                break
-            }
-        }
-    }
-    return name
+    return cache.getCookies(".twitch.tv").filter(p => (p.name === "name" || p.name === "login") && (typeof(p.value) === "string" && p.value.length > 0))[0]?.value || null
 }
 
 onload()
