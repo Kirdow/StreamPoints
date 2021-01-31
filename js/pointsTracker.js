@@ -1,7 +1,6 @@
 function startPointTracker() {
     if (window['_ktnse'] !== true) {
         const ktn = {
-            e: document.querySelector("input[aria-label=\"Search Input\"]"),
             getDisplay: function() {
                 return this.e.placeholder
             },
@@ -14,10 +13,10 @@ function startPointTracker() {
                     return
                 }
                 if (typeof(this._timer) === "number" && this._timer > 0) {
-                    this.setDisplay(`Points: ${this._points} | Updates in ${this._timer}s`)
+                    this.setDisplay(`${window._pname}: ${this._points} | Updates in ${this._timer}s`)
                 } else {
                     this._points = data
-                    this.setDisplay(`Points: ${data}`)
+                    this.setDisplay(`${window._pname}: ${data}`)
                 }
             },
             updateTimer: function() {
@@ -56,7 +55,7 @@ function startPointTracker() {
                 return this._points || 0
             },
             clearDisplay: function() {
-                this.setDisplay("Search")
+                this.setDisplay(this._search || "Search")
             },
             showPoints: function(data) { // Not used atm
                 this.setPoints(data)
@@ -75,52 +74,109 @@ function startPointTracker() {
             isValid: function() {
                 return typeof(window._ktnname) === "string" && window._ktnname.length > 0
             },
+            channelSupported: function(id, name, pname, callback) {
+                window._pname = pname.toUpperCase()[0] + pname.toLowerCase().substr(1)
+                window.channelName = name
+                window.channelLink = location.href
+                window._channel = id
+                window._ktnpause = false
+                window._support = true
+                if (typeof(callback) === "function") {
+                    callback()
+                }
+            },
+            channelUnsupported: function(name, reason) {
+                if (typeof(name) === "string") {
+                    console.log("Unsupported Channel:",name,"\nReason:",reason)
+                }
+                window.channelName = name
+                window.channelLink = location.href
+                window._channel = null
+                window._ktnpause = false
+                window._support = false
+                this.clearDisplay()
+            },
+            fetchChannel: function(channelName, callback) {
+                fetch(`https://api.streamelements.com/kappa/v2/channels/${channelName}`)
+                .then(p => p.json())
+                .then(p => {
+                    if (p.statusCode == "404" || p.provider !== "twitch") {
+                        this.channelUnsupported(channelName, p.statusCode == "404" ? "404" : "wrong platform")
+                    } else {
+                        console.log("Supported Channel:",channelName)
+                        fetch(`https://api.streamelements.com/kappa/v2/loyalty/${p._id}`)
+                        .then(p1 => p1.json())
+                        .then(p1 => {
+                            if (p1 != null && p1.loyalty != null && p1.loyalty.enabled == true) {
+                                this.channelSupported(p._id, channelName, p1.loyalty.name || "points", callback)
+                            } else {
+                                this.channelUnsupported(channelName, "Channel Points Unsupported")
+                            }
+                        })
+                    }
+                })
+                .catch(error => {
+                    console.log("Channel Points Error",error)
+                    this.channelUnsupported()
+                })
+            },
             updateChannel: function(callback) {
                 if (window.channelLink !== location.href) {
                     let cname = location.href
                     cname = cname.substr(cname.lastIndexOf("/")+1)
                     window._ktnpause = true
-                    fetch(`https://api.streamelements.com/kappa/v2/channels/${cname}`).then(p => p.json()).then(p => p._id)
-                    .then(p => {
-                        window.channelName = cname
-                        window.channelLink = location.href
-                        window._channel = p
-                        window._ktnpause = false
-                        window._support = true
-                        if (typeof(callback) === "function") {
-                            callback()
-                        }
-                    })
-                    .catch((error) => {
-                        window.channelName = cname
-                        window.channelLink = location.href
-                        window._channel = p
-                        window._ktnpause = false
-                        window._support = false
-                        this.clearDisplay()
-                    })
+                    this.fetchChannel(cname, callback)
                 }
+            },
+            getElement: function() {
+                if (typeof(this.e) === "object" && this.e != null) {
+                    return this.e
+                }
+                const result = Array.from(document.querySelectorAll("input[type=\"search\"]")).filter(this.filterElement)[0]
+                if (typeof(result) === "object" && result != null) {
+                    this._search = result.placeholder
+                    return this.e = result
+                } else {
+                    return null
+                }
+            },
+            filterElement: function(el) {
+                while (el.parentElement != el && (el = el.parentElement) != null) {
+                    if (el.getAttribute("data-a-target") === "nav-search-box") return true
+                }
+                return false
             }
         }
 
-        window._support = false
-        window['_ktnse'] = true
-        window['_ktnroot'] = ktn
-
-        if (!ktn.isValid()) {
-            return
-        }
-
-        setInterval(() => {
-            if (!window._ktnpause) {
-                ktn.updateTimer()
-                ktn.updateChannel(() => {
-                    ktn._timerup = 61
-                    ktn.forceUpdate()
-                })
-            }
-        }, 1000)
+        waitForSearch(ktn)
     }
+}
+
+function waitForSearch(ktn) {
+    const elem = ktn.getElement()
+    if (typeof(elem) === "object" && elem != null) {
+        finalizeTracker(ktn)
+        return
+    }
+    setTimeout(() => waitForSearch(ktn), 1000)
+}
+
+function finalizeTracker(ktn) {
+    window._support = false
+    window['_ktnse'] = true
+    window['_ktnroot'] = ktn
+
+    if (!ktn.isValid()) {
+        return
+    }
+
+    setInterval(() => {
+        if (!window._ktnpause) {
+            ktn.updateTimer()
+        }
+    }, 1000)
+
+    channelUpdate()
 }
 
 function initTracker() {
@@ -134,4 +190,23 @@ function initTracker() {
     })
 }
 
-setTimeout(initTracker, 0)
+function channelUpdate() {
+    window._ktnroot.updateChannel(() => {
+        window._ktnroot._timerup = 61
+        window._ktnroot.forceUpdate()
+    })
+}
+
+function messageHandler(request, sender, sendResponse) {
+    if (request.message === "tab_change") {
+        console.log("Url Changed:",request.url)
+        channelUpdate()
+    }
+}
+
+function onload() {
+    chrome.runtime.onMessage.addListener(messageHandler)
+    setTimeout(initTracker, 0)
+}
+
+setTimeout(onload, 0)

@@ -67,6 +67,36 @@ function CookieCache() {
     }
 }
 
+function StateActions(falseCallback, trueCallback) {
+    this._onFalse = falseCallback
+    this._onTrue = trueCallback
+    this._state = false
+
+    this.set = function(state) {
+        state = !!state
+        const changed = state != this._state
+        this._state = state
+
+        if (changed) {
+            const cb = (state ? this._onTrue : this._onFalse)
+            if (typeof(cb) === "function") {
+                cb()
+            }
+        }
+
+        return this._state
+    }
+
+    this.toggle = function() {
+        return this.set(!this._state)
+    }
+
+    this.get = function() {
+        return !!this._state
+    }
+}
+
+
 var cache = new CookieCache()
 
 function listener(info) {
@@ -84,27 +114,60 @@ function stopListening() {
     chrome.cookies.onChanged.removeListener(listener)
 }
 
-function onload() {
-    const timer = new Timer()
-    chrome.cookies.getAll({}, function(cookies) {
-        startListening()
-        for (let i in cookies) {
-            cache.add(cookies[i])
-        }
-    })
+var listenState = new StateActions(stopListening, startListening)
+
+function loadCookies(cookies) {
+    listenState.set(true)
+    cookies.forEach(p => cache.add(p))
 }
+
 function getUserName() {
     return cache.getCookies(".twitch.tv").filter(p => (p.name === "name" || p.name === "login") && (typeof(p.value) === "string" && p.value.length > 0)).map(p => p.value)[0] || null
 }
 
-onload()
-chrome.runtime.onMessage.addListener(
-    function (request, sender, sendResponse) {
-        console.log(sender.tab ? "from a content script:" + sender.tab.url : "from the extension")
-        if (request.label === "getName")
-            sendResponse({data: getUserName()})
-        else if (request.label === "getDomains")
-            sendResponse({data: cache.getDomains()})
-    }
-)
+function onload() {
+    chrome.cookies.getAll({}, loadCookies)
+    chrome.runtime.onMessage.addListener(messageHandler)
+    chrome.tabs.onUpdated.addListener(tabChangeHandler)
+}
 
+function RequestMessage(request, sender, sendResponse) {
+    this.label = request.label
+    this.request = request
+    this.sender = sender
+    this.sendResponse = sendResponse
+    this.result = undefined
+}
+
+function messageHandler(request, sender, sendResponse) {
+    console.log(sender.tab ? "from a content script:" + sender.tab.url : "from the extension")
+
+    if (typeof(messages[request.label]) === "function") {
+        const message = new RequestMessage(request, sender, sendResponse)
+        messages[request.label](message)
+        if (!(typeof(message.result) === 'undefined' || message.result == null)) {
+            return message.result
+        }
+    }
+}
+
+function tabChangeHandler(tabId, changeInfo, url) {
+    if (changeInfo.url) {
+        chrome.tabs.sendMessage(tabId, {
+            message: "tab_change",
+            url: changeInfo.url,
+            info: changeInfo
+        })
+    }
+}
+
+var messages = {
+    getName: function(message) {
+        message.sendResponse({data: getUserName()})
+    },
+    getDomains: function(message) {
+        message.sendResponse({data: cache.getDomains()})
+    }
+}
+
+onload()
