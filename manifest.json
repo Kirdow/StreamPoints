@@ -3,6 +3,11 @@
     "description": "Tracker for Stream Points by various bots on Twitch!",
     "version": "1.0",
     "manifest_version": 3,
+    "icons": {
+        "16": "images/icon16.png",
+        "24": "images/icon24.png",
+        "32": "images/icon32.png"
+    },
     "background": {
         "service_worker": "background.js"
     },
@@ -11,7 +16,12 @@
         "https://*.twitch.tv/*"
     ],
     "action": {
-        "default_popup": "ui/popup.html"
+        "default_icon": {
+            "16": "images/icon16.png",
+            "24": "images/icon24.png",
+            "32": "images/icon32.png"
+        },
+        "default_title": "StreamPoints"
     },
     "content_scripts": [
         {

@@ -61,15 +61,40 @@ function startPointTracker() {
                 this.setPoints(data)
                 setTimeout(() => this.clearDisplay(), 5000)
             },
-            fetchPoints: function(callback) {
+            handleErrors: function(response) {
+                if (!response.ok) {
+                    throw Error(response.statusText)
+                }
+
+                return response
+            },
+            fetchPoints: async function(callback) {
                 if (!window._support) return
-                fetch(`https://api.streamelements.com/kappa/v2/points/${window._channel}/${window._ktnname}`).then(p => p.json()).then(p => p.points)
-                .then(points => {
-                    this.setPoints(points)
+                try {
+                    const response = await fetch(`https://api.streamelements.com/kappa/v2/points/${window._channel}/${window._ktnname}`)
+                    if (!response.ok) {
+                        console.log("Failed to fetch points:", (response.statusText || "").length > 0 ? (`${response.status} - ${response.statusText}`) : (response.status))
+                        this.setPoints(0)
+                        if (typeof(callback) === "function") {
+                            callback()
+                        }
+                        return false
+                    } else {
+                        const json = await response.json()
+                        const points = json.points
+
+                        this.setPoints(points)
+                        if (typeof(callback) === "function") {
+                            callback()
+                        }
+                    }
+                } catch (error) {
+                    console.error("Points Fetch Failed:\n",error)
+                    this.setPoints(0)
                     if (typeof(callback) === "function") {
                         callback()
                     }
-                })
+                }
             },
             isValid: function() {
                 return typeof(window._ktnname) === "string" && window._ktnname.length > 0
@@ -87,7 +112,11 @@ function startPointTracker() {
             },
             channelUnsupported: function(name, reason) {
                 if (typeof(name) === "string") {
-                    console.log("Unsupported Channel:",name,"\nReason:",reason)
+                    if (reason != null) {
+                        console.log("Unsupported Channel:",name,"\nReason:",reason)
+                    } else {
+                        console.log("Unsupported Channel:",name)
+                    }
                 }
                 window.channelName = name
                 window.channelLink = location.href
@@ -96,29 +125,41 @@ function startPointTracker() {
                 window._support = false
                 this.clearDisplay()
             },
-            fetchChannel: function(channelName, callback) {
-                fetch(`https://api.streamelements.com/kappa/v2/channels/${channelName}`)
-                .then(p => p.json())
-                .then(p => {
-                    if (p.statusCode == "404" || p.provider !== "twitch") {
-                        this.channelUnsupported(channelName, p.statusCode == "404" ? "404" : "wrong platform")
+            fetchChannel: async function(channelName, callback) {
+                try {
+                    let response = await fetch(`https://api.streamelements.com/kappa/v2/channels/${channelName}`)
+                    if (!response.ok) {
+                        let reason = undefined
+                        if (response.status != "404") {
+                            console.log("Channel Points Error", `${response.status}${(response.statusText || "").length > 0 ? (` - ${response.statusText}`) : ""}`)
+                        } else {
+                            reason = "Channel not using StreamElements"
+                        }
+                        this.channelUnsupported(channelName, reason)
                     } else {
-                        console.log("Supported Channel:",channelName)
-                        fetch(`https://api.streamelements.com/kappa/v2/loyalty/${p._id}`)
-                        .then(p1 => p1.json())
-                        .then(p1 => {
-                            if (p1 != null && p1.loyalty != null && p1.loyalty.enabled == true) {
-                                this.channelSupported(p._id, channelName, p1.loyalty.name || "points", callback)
+                        const json = await response.json()
+                        if (json.statusCode == "404" || json.provider !== "twitch") {
+                            this.channelUnsupported(channelName, json.statusCode == "404" ? "StreamElements profile not found" : "wrong platform")
+                        } else {
+                            console.log("Supported Channel:",channelName)
+                            response = await fetch(`https://api.streamelements.com/kappa/v2/loyalty/${json._id}`)
+                            if (!response.ok) {
+                                console.log("Channel Points Error", `${response.status}${(response.statusText || "").length > 0 ? (` - ${response.statusText}`) : ""}`)
+                                this.channelUnsupported(channelName)
                             } else {
-                                this.channelUnsupported(channelName, "Channel Points Unsupported")
+                                const loyaltyJson = await response.json()
+                                if (loyaltyJson != null && loyaltyJson.loyalty != null && loyaltyJson.loyalty.enabled == true) {
+                                    this.channelSupported(json._id, channelName, loyaltyJson.loyalty.name || "points", callback)
+                                } else {
+                                    this.channelUnsupported(channelName, "Channel Points Disabled")
+                                }
                             }
-                        })
+                        }
                     }
-                })
-                .catch(error => {
+                } catch (error) {
                     console.log("Channel Points Error",error)
-                    this.channelUnsupported()
-                })
+                    this.channelUnsupported(channelName)
+                }
             },
             updateChannel: function(callback) {
                 if (window.channelLink !== location.href) {
@@ -201,6 +242,11 @@ function messageHandler(request, sender, sendResponse) {
     if (request.message === "tab_change") {
         console.log("Url Changed:",request.url)
         channelUpdate()
+    } else if (request.message === "action") {
+        console.log("Force Update:",request.url)
+        if (window._ktnroot != null) {
+            window._ktnroot.forceUpdate()
+        }
     }
 }
 
