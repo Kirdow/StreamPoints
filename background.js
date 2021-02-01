@@ -129,6 +129,7 @@ function onload() {
     chrome.cookies.getAll({}, loadCookies)
     chrome.runtime.onMessage.addListener(messageHandler)
     chrome.tabs.onUpdated.addListener(tabChangeHandler)
+    chrome.action.onClicked.addListener(actionClickHandler)
 }
 
 function RequestMessage(request, sender, sendResponse) {
@@ -153,12 +154,20 @@ function messageHandler(request, sender, sendResponse) {
 
 function tabChangeHandler(tabId, changeInfo, url) {
     if (changeInfo.url) {
+        console.log("Tab changed:",{id:tabId,url:changeInfo.url})
         chrome.tabs.sendMessage(tabId, {
             message: "tab_change",
-            url: changeInfo.url,
-            info: changeInfo
+            url: changeInfo.url
         })
     }
+}
+
+function actionClickHandler(tab) {
+    console.log("Action pressed from tab:", {id:tab.id, index:tab.index, url:tab.url, title:tab.title})
+    chrome.tabs.sendMessage(tab.id, {
+        message: "action",
+        url: tab.url
+    })
 }
 
 var messages = {

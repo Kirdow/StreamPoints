@@ -12,8 +12,13 @@ function startPointTracker() {
                     this.clearDisplay()
                     return
                 }
+
                 if (typeof(this._timer) === "number" && this._timer > 0) {
-                    this.setDisplay(`${window._pname}: ${this._points} | Updates in ${this._timer}s`)
+                    let update = `Updates in ${this._timer}s`
+                    if (typeof(this._warn) === "number" && this._warn > 0) {
+                        update = `Force available in ${60 - this._timerup}s`
+                    }
+                    this.setDisplay(`${window._pname}: ${this._points} | ${update}`)
                 } else {
                     this._points = data
                     this.setDisplay(`${window._pname}: ${data}`)
@@ -22,7 +27,16 @@ function startPointTracker() {
             updateTimer: function() {
                 if (typeof(window._channel) !== "string" || !window._support) return
                 this._timer = (this._timer || 0) - 1
-                this._timerup = (this._timerup || -1) + 1
+                if (typeof(this._timerup) === "number") {
+                    this._timerup += 1
+                } else {
+                    this._timerup = 1
+                }
+
+                if (typeof(this._warn) === "number" && this._warn > 0) {
+                    this._warn -= 1
+                }
+
                 if (typeof(this._points) !== "number" || this._timer <= 0) {
                     if (this._reqon === true) {
                         return
@@ -49,6 +63,8 @@ function startPointTracker() {
                         this._timerup = 0
                         this._reqon = false
                     })
+                } else {
+                    this._warn = 3
                 }
             },
             getPoints: function() {
