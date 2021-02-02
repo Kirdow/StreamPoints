@@ -3,10 +3,13 @@
 Chromium Extension for tracking bot-based points on the streaming platform Twitch.
 
 ## How to install
-Once the chrome store item is published, I will update this section with a link, but simply visit that link and the extension to your browser (chromium based).
+Simply add [this Chromium extension](https://chrome.google.com/webstore/detail/twitch-pointtracker/abadiofofcalmkdepnjmdmnobfkleoaj) to your browser and you're good to go. 
 
 ## How to use
 Once you have it installed (see previous step) and you enter a Twitch channel which has points on their stream, your point count will appear in the search field in the navbar as a placeholder. Automatically updates when you switch stream and automatically resets to default text when you switch to an unsupported channel.
+
+## What points do you track, and what bots?
+I don't track Twitch's default points, because that already exists on the site itself. What I do track is points managed by bots like StreamElements, Streamlabs or Nightbot. Note that currently, I'm only supporting points from StreamElements, as that was the only one I found having a public easy-to-implement API that was easy to work with. Whenever I find time and opportunity to implement the other bots, I will definitely do so. But at the current point in time, only StreamElements is supported.
 
 ## Contributions?
 Sure, all welcome, make sure you document the commits the same way I do (preferrably, not a rule, but please document each change in depth with a dash followed by a space, and there's a greater chance I accept the changes), and submit a PR in an issue. I might take time before I accept it however, so please be patient.
