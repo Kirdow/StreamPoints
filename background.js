@@ -173,9 +173,6 @@ function actionClickHandler(tab) {
 var messages = {
     getName: function(message) {
         message.sendResponse({data: getUserName()})
-    },
-    getDomains: function(message) {
-        message.sendResponse({data: cache.getDomains()})
     }
 }
 

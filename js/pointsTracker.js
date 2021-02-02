@@ -30,6 +30,51 @@ function PointTracker() {
     this._warn = new VariableWrapper(0, "number")
     this.reqon = new VariableWrapper(false, "boolean")
     this._search = new VariableWrapper("Search", "string")
+    this._support = new VariableWrapper(false, "boolean")
+    this._pname = new VariableWrapper("Points", "string")
+    this._ktnname = new VariableWrapper(null)
+    this._channel = new VariableWrapper(null)
+    this._ktnpause = new VariableWrapper(false, "boolean")
+
+    this.isSupport = function() {
+        return this._support.get()
+    }
+
+    this.getPointName = function() {
+        return this._pname.get()
+    }
+
+    this.getUserName = function() {
+        return this._ktnname.get()
+    }
+
+    this.getChannelName = function() {
+        return this._channel.get()
+    }
+
+    this.isPaused = function() {
+        return this._ktnpause.get()
+    }
+
+    this.setSupport = function(value) {
+        return this._support.modify(value)
+    }
+
+    this.setPointName = function(value) {
+        return this._pname.modify(value)
+    }
+
+    this.setUserName = function(value) {
+        return this._ktnname.modify(value)
+    }
+
+    this.setChannelName = function(value) {
+        return this._channel.modify(value)
+    }
+
+    this.setPause = function(value) {
+        return this._ktnpause.modify(value)
+    }
 
     this.getPoints = function() {
         return this._points.get()
@@ -99,7 +144,7 @@ function PointTracker() {
         this.e.get().placeholder = data
     }
 
-    this.setPoints = function(data) {
+    this.displayPoints = function(data) {
         if (typeof(data) !== "number") {
             this.clearDisplay()
             return
@@ -110,15 +155,15 @@ function PointTracker() {
             if (this.getWarn() > 0) {
                 update = `Force available in ${60 - this.getTimerUp()}s`
             }
-            this.setDisplay(`${window._pname}: ${this._points.get()} | ${update}`)
+            this.setDisplay(`${this.getPointName()}: ${this.getPoints()} | ${update}`)
         } else {
-            this._points.set(data)
-            this.setDisplay(`${window._pname}: ${data}`)
+            this.setPoints(data)
+            this.setDisplay(`${this.getPointName()}: ${data}`)
         }
     }
 
     this.updateTimer = function() {
-        if (typeof(window._channel) !== "string" || !window._support) return
+        if (!this.isSupport()) return
 
         this.tickTimer()
         this.tickTimerUp()
@@ -137,7 +182,7 @@ function PointTracker() {
                 this.setReqon(false)
             })
         } else {
-            this.setPoints(this._points.get())
+            this.displayPoints(this.getPoints())
         }
     }
 
@@ -169,10 +214,10 @@ function PointTracker() {
     }
 
     this.fetchPoints = async function(callback) {
-        if (!window._support) return
+        if (!this.isSupport()) return
 
         try {
-            const response = await fetch(`https://api.streamelements.com/kappa/v2/points/${window._channel}/${window._ktnname}`)
+            const response = await fetch(`https://api.streamelements.com/kappa/v2/points/${this.getChannelName()}/${this.getUserName()}`)
             if (!response.ok) {
                 console.log("Failed to fetch points:", (response.statusText || "").length > 0 ? (`${response.status} - ${response.statusText}`) : (response.status))
                 this.setPoints(0)
@@ -198,16 +243,18 @@ function PointTracker() {
     }
 
     this.isValid = function() {
-        return typeof(window._ktnname) === "string" && window._ktnname.length > 0
+        return typeof(this.getUserName()) === "string" && this.getUserName().length > 0
     }
 
     this.channelSupported = function(id, name, pname, callback) {
-        window._pname = pname.toUpperCase()[0] + pname.toLowerCase().substr(1)
         window.channelName = name
         window.channelLink = location.href
-        window._channel = id
-        window._ktnpause = false
-        window._support = true
+
+        this.setPointName(pname.toUpperCase()[0] + pname.toLowerCase().substr(1))
+        this.setChannelName(id)
+        this.setPause(false)
+        this.setSupport(true)
+
         if (typeof(callback) === "function") {
             callback()
         }
@@ -223,9 +270,10 @@ function PointTracker() {
         }
         window.channelName = name
         window.channelLink = location.href
-        window._channel = null
-        window._ktnpause = false
-        window._support = false
+
+        this.setChannelName(null)
+        this.setPause(false)
+        this.setSupport(false)
         this.clearDisplay()
     }
 
@@ -270,7 +318,7 @@ function PointTracker() {
         if (window.channelLink !== location.href) {
             let cname = location.href
             cname = cname.substr(cname.lastIndexOf("/") + 1)
-            window._ktnpause = true
+            this.setPause(true)
             this.fetchChannel(cname, callback)
         }
     }
@@ -309,7 +357,7 @@ function PointTracker() {
     this.preInit = function() {
         chrome.runtime.sendMessage({ label: "getName" }, response => {
             if (typeof(response.data) === "string" && response.data.length > 0) {
-                window._ktnname = response.data
+                this.setUserName(response.data)
                 setTimeout(() => this.waitForSearch(), 0)
             } else {
                 setTimeout(() => this.preInit(), 2000)
@@ -328,14 +376,14 @@ function PointTracker() {
     }
 
     this.postInit = function() {
-        window._support = false
+        this.setSupport(false)
 
         if (!this.isValid()) {
             return
         }
 
         setInterval(() => {
-            if (!window._ktnpause) {
+            if (!this.isPaused()) {
                 this.updateTimer()
             }
         }, 1000)
