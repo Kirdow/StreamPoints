@@ -226,11 +226,6 @@ function PointTracker() {
         this.setDisplay(this.getSearch())
     }
 
-    // Not used atm
-    this.showPoints = function(data) {
-        this.setTimeout(() => this.clearDisplay(), 5000)
-    }
-
     // This fetches the points from the streamelements api
     this.fetchPoints = async function(callback) {
         // Make sure the current channel is supported, get out if not
